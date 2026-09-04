@@ -1,5 +1,7 @@
 package org.firstinspires.ftc.teamcode.examples;
 
+import com.acmerobotics.dashboard.FtcDashboard;
+import com.acmerobotics.dashboard.telemetry.MultipleTelemetry;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 
@@ -41,6 +43,14 @@ import java.util.List;
  * - hardwareMap.get(): Looks up a configured hardware device by name
  * - LinearOpMode: Runs step-by-step, top to bottom, inside a while loop
  * - telemetry.addData()/update(): Sends text to the Driver Station screen
+ *
+ * FTC DASHBOARD:
+ * This OpMode's telemetry also streams to FTC Dashboard
+ * (http://192.168.43.1:8080/dash while connected to the Control Hub's
+ * WiFi), which graphs it live instead of just showing static text. The
+ * Dashboard's camera panel also shows the live webcam feed (with AprilTag
+ * overlays), which is especially useful here - you can watch exactly what
+ * the camera sees alongside the numbers it's reporting.
  */
 @TeleOp(name = "Basic: Camera", group = "Sensor")
 public class SensorCamera extends LinearOpMode {
@@ -50,6 +60,12 @@ public class SensorCamera extends LinearOpMode {
         // FTC SDK: Look up the webcam from the robot's hardware config
         WebcamName webcam = hardwareMap.get(WebcamName.class, HardwareNames.WEBCAM);
         CameraComponent camera = new CameraComponent(webcam);
+        camera.startDashboardStream();
+
+        // FTC Dashboard: send every telemetry.addData()/addLine()/update()
+        // call below to BOTH the Driver Station and the Dashboard browser
+        // page, instead of just the Driver Station.
+        telemetry = new MultipleTelemetry(telemetry, FtcDashboard.getInstance().getTelemetry());
 
         telemetry.addLine("Ready! Press START to begin AprilTag detection.");
         telemetry.update();

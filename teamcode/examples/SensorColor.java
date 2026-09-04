@@ -1,5 +1,7 @@
 package org.firstinspires.ftc.teamcode.examples;
 
+import com.acmerobotics.dashboard.FtcDashboard;
+import com.acmerobotics.dashboard.telemetry.MultipleTelemetry;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.hardware.ColorSensor;
@@ -29,6 +31,13 @@ import org.firstinspires.ftc.teamcode.components.ColorSensorComponent;
  * - hardwareMap.get(): Looks up a configured hardware device by name
  * - LinearOpMode: Runs step-by-step, top to bottom, inside a while loop
  * - telemetry.addData()/update(): Sends text to the Driver Station screen
+ *
+ * FTC DASHBOARD:
+ * This OpMode's telemetry also streams to FTC Dashboard
+ * (http://192.168.43.1:8080/dash while connected to the Control Hub's
+ * WiFi), which graphs it live instead of just showing static text - handy
+ * for watching Red/Green/Blue/Alpha update as you swap objects in front of
+ * the sensor.
  */
 @TeleOp(name = "Basic: Color", group = "Sensor")
 public class SensorColor extends LinearOpMode {
@@ -38,6 +47,11 @@ public class SensorColor extends LinearOpMode {
         // FTC SDK: Look up the color sensor from the robot's hardware config
         ColorSensor rawSensor = hardwareMap.get(ColorSensor.class, HardwareNames.COLOR_SENSOR);
         ColorSensorComponent colorSensor = new ColorSensorComponent(rawSensor);
+
+        // FTC Dashboard: send every telemetry.addData()/addLine()/update()
+        // call below to BOTH the Driver Station and the Dashboard browser
+        // page, instead of just the Driver Station.
+        telemetry = new MultipleTelemetry(telemetry, FtcDashboard.getInstance().getTelemetry());
 
         telemetry.addLine("Ready! Press START to begin reading the color sensor.");
         telemetry.update();

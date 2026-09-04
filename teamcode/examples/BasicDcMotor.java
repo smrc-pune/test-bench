@@ -1,5 +1,7 @@
 package org.firstinspires.ftc.teamcode.examples;
 
+import com.acmerobotics.dashboard.FtcDashboard;
+import com.acmerobotics.dashboard.telemetry.MultipleTelemetry;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.hardware.DcMotor;
@@ -29,6 +31,12 @@ import org.firstinspires.ftc.teamcode.components.ContinuousDCMotorComponent;
  * - hardwareMap.get(): Looks up a configured hardware device by name
  * - LinearOpMode: Runs step-by-step, top to bottom, inside a while loop
  * - telemetry.addData()/update(): Sends text to the Driver Station screen
+ *
+ * FTC DASHBOARD:
+ * This OpMode's telemetry also streams to FTC Dashboard
+ * (http://192.168.43.1:8080/dash while connected to the Control Hub's
+ * WiFi), which graphs it live instead of just showing static text - handy
+ * for watching Power respond to the stick in real time.
  */
 @TeleOp(name = "Basic: DC Motor", group = "Basic")
 public class BasicDcMotor extends LinearOpMode {
@@ -41,6 +49,11 @@ public class BasicDcMotor extends LinearOpMode {
 
         // Wrap gamepad1 so we can read stick input
         GamepadConfig controls = new GamepadConfig(gamepad1);
+
+        // FTC Dashboard: send every telemetry.addData()/addLine()/update()
+        // call below to BOTH the Driver Station and the Dashboard browser
+        // page, instead of just the Driver Station.
+        telemetry = new MultipleTelemetry(telemetry, FtcDashboard.getInstance().getTelemetry());
 
         telemetry.addLine("Ready! Press START to begin driving the motor.");
         telemetry.update();
