@@ -1,5 +1,7 @@
 package org.firstinspires.ftc.teamcode.components;
 
+import com.acmerobotics.dashboard.FtcDashboard;
+
 import org.firstinspires.ftc.robotcore.external.hardware.camera.WebcamName;
 import org.firstinspires.ftc.vision.VisionPortal;
 import org.firstinspires.ftc.vision.apriltag.AprilTagDetection;
@@ -277,6 +279,44 @@ public class CameraComponent {
      */
     public void resumeStreaming() {
         visionPortal.resumeStreaming();
+    }
+
+    /**
+     * Start streaming the camera feed to FTC Dashboard
+     *
+     * STUDENT: Shows the live camera view (with AprilTag detection overlays)
+     * in a browser at 192.168.43.1:8080/dash, while connected to the
+     * Control Hub's WiFi - independent of the Driver Station app's own
+     * "Camera Stream" menu option.
+     *
+     * FTC SDK DETAIL:
+     * VisionPortal already implements the FTC Dashboard's CameraStreamSource
+     * interface, so we can hand it straight to FtcDashboard - no separate
+     * vision processor needed just for streaming.
+     *
+     * STUDENT LEARNING:
+     * The second argument is a max frames-per-second cap. 0 means "no cap -
+     * send frames as fast as they arrive," which is fine to start with, but
+     * can be lowered (e.g. 10) if the stream feels laggy or is competing
+     * with other CPU-heavy work on the Control Hub.
+     *
+     * EXAMPLE:
+     * camera.startDashboardStream();
+     */
+    public void startDashboardStream() {
+        // FTC SDK: VisionPortal is itself a valid CameraStreamSource
+        FtcDashboard.getInstance().startCameraStream(visionPortal, 0);
+    }
+
+    /**
+     * Stop streaming the camera feed to FTC Dashboard
+     *
+     * STUDENT: Call this if you want to free up the bandwidth/CPU the
+     * Dashboard stream was using, without pausing AprilTag detection itself
+     * (see pauseStreaming() for that).
+     */
+    public void stopDashboardStream() {
+        FtcDashboard.getInstance().stopCameraStream();
     }
 
     /**

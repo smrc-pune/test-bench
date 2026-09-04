@@ -1,10 +1,13 @@
 package org.firstinspires.ftc.teamcode.examples;
 
+import com.acmerobotics.dashboard.FtcDashboard;
+import com.acmerobotics.dashboard.telemetry.MultipleTelemetry;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.hardware.CRServo;
 
 import org.firstinspires.ftc.robotcore.external.hardware.camera.WebcamName;
+import org.firstinspires.ftc.teamcode.DashboardConfig;
 import org.firstinspires.ftc.teamcode.GamepadConfig;
 import org.firstinspires.ftc.teamcode.HardwareNames;
 import org.firstinspires.ftc.teamcode.components.CameraComponent;
@@ -43,26 +46,40 @@ import java.util.List;
  * - hardwareMap.get(): Looks up a configured hardware device by name
  * - LinearOpMode: Runs step-by-step, top to bottom, inside a while loop
  * - telemetry.addData()/update(): Sends text to the Driver Station screen
+ *
+ * FTC DASHBOARD:
+ * This OpMode's telemetry also streams to FTC Dashboard
+ * (http://192.168.43.1:8080/dash while connected to the Control Hub's
+ * WiFi), which graphs it live instead of just showing static text. The
+ * AIM_GAIN constant below lives in DashboardConfig.java specifically so it
+ * can be tuned from that browser page WHILE this OpMode is running - watch
+ * the servo's reaction change in real time instead of edit-rebuild-redeploy
+ * for every tweak.
+ *
+ * The Dashboard's camera panel also shows the live webcam feed (with
+ * AprilTag overlays), which is especially useful here - you can watch
+ * exactly what the camera sees while tuning AIM_GAIN, instead of guessing.
  */
 @TeleOp(name = "Concept: AprilTag Aim Servo", group = "Concept")
 public class ConceptAprilTagAimServo extends LinearOpMode {
-
-    // How aggressively the servo reacts to bearing error.
-    // STUDENT: This is the "P" (proportional) gain. Too high = jittery
-    // overshoot; too low = sluggish aiming. Try adjusting this and see!
-    private static final double AIM_GAIN = 0.02;
 
     @Override
     public void runOpMode() {
         // FTC SDK: Look up the webcam and servo from the hardware config
         WebcamName webcam = hardwareMap.get(WebcamName.class, HardwareNames.WEBCAM);
         CameraComponent camera = new CameraComponent(webcam);
+        camera.startDashboardStream();
 
         CRServo rawServo = hardwareMap.get(CRServo.class, HardwareNames.SERVO_CONTINUOUS);
         ContinuousServoComponent servo = new ContinuousServoComponent(rawServo);
 
         // Wrap gamepad1 so we can read button presses
         GamepadConfig controls = new GamepadConfig(gamepad1);
+
+        // FTC Dashboard: send every telemetry.addData()/addLine()/update()
+        // call below to BOTH the Driver Station and the Dashboard browser
+        // page, instead of just the Driver Station.
+        telemetry = new MultipleTelemetry(telemetry, FtcDashboard.getInstance().getTelemetry());
 
         // STUDENT: Starts OFF on purpose - this servo actively hunts for a
         // tag once enabled, so we don't want it spinning the instant START
@@ -94,7 +111,9 @@ public class ConceptAprilTagAimServo extends LinearOpMode {
                 // Proportional control: power scales with how far off we are.
                 // Positive bearing (tag to the right) -> spin one direction;
                 // negative bearing (tag to the left) -> spin the other way.
-                appliedPower = Math.max(-1.0, Math.min(1.0, bearing * AIM_GAIN));
+                // STUDENT: DashboardConfig.AIM_GAIN is live-tunable from FTC
+                // Dashboard - change it there while this loop is running.
+                appliedPower = Math.max(-1.0, Math.min(1.0, bearing * DashboardConfig.AIM_GAIN));
             }
 
             servo.setPower(appliedPower);
