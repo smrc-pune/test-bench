@@ -32,4 +32,14 @@ public class DashboardConfig {
     // How aggressively the servo reacts to bearing error (the "P" gain).
     // Too high = jittery overshoot; too low = sluggish aiming.
     public static double AIM_GAIN = 0.02;
+
+    // ========== ConceptDcMotorVelocity ==========
+
+    // STUDENT: This is a STARTING GUESS, not a verified spec - a motor's
+    // true max velocity depends on its specific gear ratio and encoder
+    // CPR, which varies by hardware. Tune this live from Dashboard while
+    // ConceptDcMotorVelocity is running: push the stick to full, watch
+    // "Actual Velocity" in telemetry, and raise or lower this number until
+    // full stick actually reaches the motor's real top speed.
+    public static double MOTOR_MAX_VELOCITY_TICKS_PER_SEC = 2000.0;
 }

@@ -37,6 +37,7 @@ Each class wraps a single FTC SDK hardware interface and exposes a small, purpos
 |---|---|---|
 | [`ContinuousDCMotorComponent`](components/ContinuousDCMotorComponent.java) | `DcMotor` | Open-loop velocity control — set a power, it spins |
 | [`PositionDCMotorComponent`](components/PositionDCMotorComponent.java) | `DcMotor` | Closed-loop position control using the motor's encoder (`RUN_TO_POSITION`) |
+| [`VelocityDCMotorComponent`](components/VelocityDCMotorComponent.java) | `DcMotorEx` | Closed-loop **speed** control — set a target in encoder ticks/second (`RUN_USING_ENCODER` + `setVelocity()`) and the SDK holds it |
 | [`PositionServoComponent`](components/PositionServoComponent.java) | `Servo` | Positional servo control — increment/decrement/jump to a position, with a configurable real-world degree range (not every servo is 180°) |
 | [`ContinuousServoComponent`](components/ContinuousServoComponent.java) | `CRServo` | Continuous-rotation servo — same idea as the DC motor, for a servo |
 | [`TouchSensorComponent`](components/TouchSensorComponent.java) | `TouchSensor` | Press state + manual press counting (with edge-detection guidance) |
@@ -84,6 +85,21 @@ All examples live in [`examples/`](examples/) and extend `LinearOpMode`. They're
 | `Basic: Servo Position` | Position Servo | Dpad Up/Down | Positional servo, incremental movement |
 | `Basic: Servo Continuous` | Continuous Servo | Right Stick Y | Continuous-rotation servo |
 | `Concept: DC Motor Position` | DC Motor | RB/LB: ±100 ticks, A: move | Closed-loop position control, encoders, dial-in-then-commit interaction |
+| `Concept: DC Motor Velocity` | DC Motor | A: toggle spin/stop | Closed-loop **speed** control via `DcMotorEx` — the motor reaches one target speed and holds it (see below) |
+
+#### `Concept: DC Motor Velocity` — speed instead of power
+
+Every other motor example on this bench uses plain `DcMotor` and `setPower()` — whatever power you send is
+exactly what gets applied, with no feedback. This example uses **`DcMotorEx`** instead, which adds
+`setVelocity()`/`getVelocity()`: press A and the motor spins up to ONE target speed (encoder ticks/second,
+tunable live via `DashboardConfig.MOTOR_MAX_VELOCITY_TICKS_PER_SEC`), and the SDK's own PID loop
+continuously adjusts the real applied power on its own to hold it there.
+
+**Try it on the real bench:** press A and let it spin up, then watch `Applied Power` in telemetry settle
+down once `Actual Velocity` reaches the target. Now grip the motor's output shaft by hand to load it down —
+`Applied Power` climbs on its own to fight back, and `Actual Velocity` is pulled right back to the target
+instead of staying sagged. That's the whole point: a flywheel, intake, or anything else that needs a
+*consistent* speed regardless of battery voltage or load wants velocity control, not power control.
 
 ### Tier 3 — Sensor drives actuator / multi-actuator coordination
 
@@ -93,6 +109,57 @@ All examples live in [`examples/`](examples/) and extend `LinearOpMode`. They're
 | `Concept: Color Sort Servo` | Color Sensor + Position Servo | none | Sensor-driven branching logic — detected color selects a servo position |
 | `Concept: AprilTag Aim Servo` | Webcam + Continuous Servo | A: enable/disable | Basic proportional (closed-loop) feedback control, **plus FTC Dashboard**: live-graphed telemetry, a live camera preview, and a live-tunable gain constant (see below) |
 | `Concept: Coordinated Actuators` | DC Motor + Position Servo | A: Stow, B: Deploy | One trigger commanding multiple actuators toward matched presets |
+
+### Tier 4 — Full state machine (every component, together)
+
+| OpMode | Components | Gamepad | What it teaches |
+|---|---|---|---|
+| `Concept: State Machine` | DC Motor + Touch Sensor + Color Sensor + Position Servo + Continuous Servo | B: emergency stop (any state) | A five-state `enum` + `switch` state machine (search → decide → act → recover → repeat) built from real sensor conditions instead of gamepad button presses, including a bounded safety-net timeout and a from-any-state abort transition. See the class Javadoc for a note on when a bounded settle/pulse timer is still okay in a state machine, and when it isn't. |
+
+#### `Concept: State Machine` — full walkthrough
+
+[`ConceptStateMachine.java`](examples/ConceptStateMachine.java) runs a small, self-contained color-sorting
+routine that uses every actuator and sensor on the bench together, one touch-sensor press at a time.
+
+```
+       (touch pressed) ---> SEEKING ---> SORTING ---> RELEASING
+             ^                                              |
+             |                                              v
+       WAIT_FOR_TOUCH  <----------------------- RETURNING_HOME
+```
+
+| State | What's happening | How it exits |
+|---|---|---|
+| `WAIT_FOR_TOUCH` | Everything is off/idle | A **new** touch-sensor press (edge-detected, not just "is it pressed") |
+| `SEEKING` | Motor drives toward a deliberately distant encoder target while the color sensor watches every loop | A valid color reading (alpha above a floor, name isn't `"UNKNOWN"`) — **or** an 8-second safety-net timeout, whichever comes first |
+| `SORTING` | Motor stopped; positional servo aims at the bin for whatever color was found (or the reject bin, for a timeout/unrecognized color) | A short, bounded settle timer |
+| `RELEASING` | Continuous servo pulses briefly to push the item out | A short, bounded pulse timer |
+| `RETURNING_HOME` | Motor drives itself back to its exact starting encoder tick | `hasReachedTarget()` — a real condition, not a timer |
+
+From `RETURNING_HOME`, the cycle loops itself back to `WAIT_FOR_TOUCH` automatically — no second button
+press needed, ready for the next item.
+
+**Hardware used:** `DC_MOTOR` (with encoder), `TOUCH_SENSOR`, `COLOR_SENSOR`, `SERVO_POSITION`
+(the sorting bin), `SERVO_CONTINUOUS` (the ejector) — every device on the bench except the webcam.
+
+**Gamepad:** `B` is an emergency stop that works from **any** state, not just a normal transition. It
+immediately zeroes every actuator and resets to `WAIT_FOR_TOUCH` — the "abort button" every real
+mechanism needs alongside its happy path.
+
+**When is a timer okay?** The whole point of a state machine is escaping `sleep()`-chains that *guess*
+how long something takes — but this example still uses `ElapsedTime` in two places, and neither is that
+mistake:
+
+1. **`SEEKING`'s timeout is a safety net, not the plan.** A real condition (a valid color) always wins if
+   it shows up first; the timer only fires if nothing ever does, so the routine can't get stuck searching
+   forever.
+2. **`SORTING`/`RELEASING`'s settle and pulse timers bound a motion already in progress.** Positional and
+   continuous servos don't report "I've arrived" the way an encoder does — there's no condition to check.
+   Giving an already-decided motion a fixed, bounded amount of time to physically finish is different from
+   using a timer to *decide* what happens next.
+
+Contrast both with `RETURNING_HOME`, which has a real condition available (the encoder) and uses it
+instead — `motor.hasReachedTarget()`, not a timer.
 
 ## Getting Started
 
